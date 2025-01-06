@@ -27,7 +27,7 @@ func CalculateHandler(c echo.Context) error {
 
 	result, err := calculation.Calc(request.Expression)
 	if err != nil {
-		if errors.Is(err, calculation.ErrInvalidExpression) {
+		if errors.Is(err, calculation.ErrInvalidExpression) || errors.Is(err, calculation.ErrDivisionByZero) {
 			return c.JSON(http.StatusUnprocessableEntity, Response{Error: "Expression is not valid"})
 		}
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Internal server error"})

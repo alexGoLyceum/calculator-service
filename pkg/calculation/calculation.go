@@ -29,7 +29,7 @@ func Calc(expression string) (float64, error) {
 		case char == ')':
 			for len(operations) > 0 && operations[len(operations)-1] != '(' {
 				if err := processOperation(&numbers, &operations); err != nil {
-					return 0, err
+					return 0, ErrInvalidExpression
 				}
 			}
 			operations = operations[:len(operations)-1]
@@ -40,14 +40,14 @@ func Calc(expression string) (float64, error) {
 			}
 			number, err := strconv.ParseFloat(expression[startIndex:i], 64)
 			if err != nil {
-				return 0, err
+				return 0, ErrInvalidExpression
 			}
 			numbers = append(numbers, number)
 			i--
 		case strings.ContainsRune("+-*/", char):
 			for len(operations) > 0 && priority[char] <= priority[operations[len(operations)-1]] {
 				if err := processOperation(&numbers, &operations); err != nil {
-					return 0, err
+					return 0, ErrInvalidExpression
 				}
 			}
 			operations = append(operations, char)
@@ -58,7 +58,7 @@ func Calc(expression string) (float64, error) {
 
 	for len(operations) > 0 {
 		if err := processOperation(&numbers, &operations); err != nil {
-			return 0, err
+			return 0, ErrInvalidExpression
 		}
 	}
 

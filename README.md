@@ -87,13 +87,31 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 }
 ```
 
-**Пример запроса с ошибкой:**
+**Пример запроса с ошибкой #1:**
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --data '{
   "expression": "2+word"
+}'
+```
+
+**Пример ответа:**
+
+```json
+{
+  "error": "Expression is not valid"
+}
+```
+
+**Пример запроса с ошибкой #2:**
+
+```bash
+curl --location 'http://localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "2/0"
 }'
 ```
 
