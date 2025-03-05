@@ -1,0 +1,109 @@
+body {
+    background-color: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    margin-top: 50px;
+}
+
+.btn-custom {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-custom:hover {
+    background-color: #218838;
+}
+
+.response-container {
+    margin-top: 20px;
+}
+
+.card {
+    background-color: #222;
+    border-radius: 5px;
+}
+
+.card-header {
+    background-color: #444;
+    color: white;
+}
+
+.card-body {
+    background-color: #333;
+}
+
+.json-view {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    min-height: 100px;
+    max-height: none;
+    overflow-y: hidden;
+}
+
+.readable-view {
+    min-height: 100px;
+    max-height: none;
+    overflow-y: hidden;
+}
+
+.error-message {
+    color: red;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+    margin-top: 20px;
+}
+
+table th, table td {
+    text-align: left;
+    padding: 8px;
+    white-space: nowrap;
+}
+
+table td {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 200px;
+}
+
+table th {
+    background-color: #444;
+}
+
+table td, table th {
+    color: white;
+}
+
+table td.status {
+    white-space: nowrap;
+    width: 150px;
+}
+
+table td.result {
+    width: 200px;
+    white-space: nowrap;
+}
+
+table td.id {
+    white-space: normal;
+    word-wrap: break-word;
+    width: 150px;
+    max-width: 200px;
+}
+
+#responseArea {
+    width: 90%;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.col-md-6 {
+    width: 70%;
+    max-width: 900px;
+    margin: 0 auto;
+}
