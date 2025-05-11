@@ -56,6 +56,7 @@ services:
       - my_network
     depends_on:
       - postgres
+    command: sh -c "sleep 5 && /app/orchestrator"
 
   agent:
     build:
@@ -77,6 +78,7 @@ services:
       - orchestrator
     deploy:
       replicas: ${COMPUTING_POWER}
+    command: sh -c "sleep 5 && /app/agent"
 networks:
   my_network:
     driver: bridge
