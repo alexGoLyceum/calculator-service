@@ -175,7 +175,7 @@ curl --location "<хост>:<порт>/api/v1/register" \
 TOKEN=$(curl -s --location "http://localhost:8080/api/v1/register" \
 --header "Content-Type: application/json" \
 --data '{
-  "login": "test_user_123",
+  "login": "test_user",
   "password": "StrongPass123!"
 }' | jq -r '.token')
 
