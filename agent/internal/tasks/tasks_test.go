@@ -10,111 +10,106 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCalculate_Addition(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 3},
-		Arg2:     tasks.Operand{Value: 5},
-		Operator: "+",
+func TestCalculate_AllOperators(t *testing.T) {
+	baseTime := time.Now()
+	futureTime := baseTime.Add(10 * time.Millisecond)
+
+	tests := []struct {
+		name     string
+		task     tasks.Task
+		expected float64
+	}{
+		{
+			name: "Addition",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 2},
+				Arg2:     tasks.Operand{Value: 3},
+				Operator: "+",
+			},
+			expected: 5,
+		},
+		{
+			name: "Subtraction",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 5},
+				Arg2:     tasks.Operand{Value: 2},
+				Operator: "-",
+			},
+			expected: 3,
+		},
+		{
+			name: "Multiplication",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 3},
+				Arg2:     tasks.Operand{Value: 4},
+				Operator: "*",
+			},
+			expected: 12,
+		},
+		{
+			name: "Division",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 10},
+				Arg2:     tasks.Operand{Value: 2},
+				Operator: "/",
+			},
+			expected: 5,
+		},
+		{
+			name: "Division by zero",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 10},
+				Arg2:     tasks.Operand{Value: 0},
+				Operator: "/",
+			},
+			expected: math.NaN(),
+		},
+		{
+			name: "Unknown operator",
+			task: tasks.Task{
+				Arg1:     tasks.Operand{Value: 10},
+				Arg2:     tasks.Operand{Value: 2},
+				Operator: "^",
+			},
+			expected: math.NaN(),
+		},
+		{
+			name: "Future operation time sleeps",
+			task: tasks.Task{
+				Arg1:          tasks.Operand{Value: 1},
+				Arg2:          tasks.Operand{Value: 2},
+				Operator:      "+",
+				OperationTime: futureTime,
+			},
+			expected: 3,
+		},
+		{
+			name: "Past operation time does not sleep",
+			task: tasks.Task{
+				Arg1:          tasks.Operand{Value: 1},
+				Arg2:          tasks.Operand{Value: 2},
+				Operator:      "+",
+				OperationTime: baseTime.Add(-1 * time.Minute),
+			},
+			expected: 3,
+		},
 	}
 
-	result := tasks.Calculate(task)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start := time.Now()
+			result := tasks.Calculate(&tt.task)
+			duration := time.Since(start)
 
-	assert.Equal(t, 8.0, result, "Expected result to be 8 for addition")
-}
+			if math.IsNaN(tt.expected) {
+				assert.True(t, math.IsNaN(result), "expected NaN")
+			} else {
+				assert.Equal(t, tt.expected, result)
+			}
 
-func TestCalculate_Subtraction(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 10},
-		Arg2:     tasks.Operand{Value: 4},
-		Operator: "-",
+			if tt.task.OperationTime.After(time.Now()) {
+				assert.GreaterOrEqual(t, duration, 10*time.Millisecond, "should sleep if future time")
+			}
+		})
 	}
-
-	result := tasks.Calculate(task)
-
-	assert.Equal(t, 6.0, result, "Expected result to be 6 for subtraction")
-}
-
-func TestCalculate_Multiplication(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 3},
-		Arg2:     tasks.Operand{Value: 5},
-		Operator: "*",
-	}
-
-	result := tasks.Calculate(task)
-
-	assert.Equal(t, 15.0, result, "Expected result to be 15 for multiplication")
-}
-
-func TestCalculate_Division(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 10},
-		Arg2:     tasks.Operand{Value: 2},
-		Operator: "/",
-	}
-
-	result := tasks.Calculate(task)
-
-	assert.Equal(t, 5.0, result, "Expected result to be 5 for division")
-}
-
-func TestCalculate_DivisionByZero(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 10},
-		Arg2:     tasks.Operand{Value: 0},
-		Operator: "/",
-	}
-
-	result := tasks.Calculate(task)
-
-	assert.True(t, math.IsNaN(result), "Expected result to be NaN when dividing by zero")
-}
-
-func TestCalculate_NaNForUnknownOperator(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:     tasks.Operand{Value: 5},
-		Arg2:     tasks.Operand{Value: 3},
-		Operator: "?",
-	}
-
-	result := tasks.Calculate(task)
-
-	assert.True(t, math.IsNaN(result), "Expected result to be NaN for an unknown operator")
-}
-
-func TestCalculate_WithFutureOperationTime(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:          tasks.Operand{Value: 3},
-		Arg2:          tasks.Operand{Value: 5},
-		Operator:      "+",
-		OperationTime: time.Now().Add(2 * time.Second),
-	}
-
-	done := make(chan bool)
-
-	go func() {
-		tasks.Calculate(task)
-		done <- true
-	}()
-
-	select {
-	case <-done:
-		result := tasks.Calculate(task)
-		assert.Equal(t, 8.0, result, "Expected result to be 8 for addition")
-	case <-time.After(3 * time.Second):
-		t.Fatal("Test timed out, expected calculation to finish after 2 seconds")
-	}
-}
-
-func TestCalculate_WithPastOperationTime(t *testing.T) {
-	task := &tasks.Task{
-		Arg1:          tasks.Operand{Value: 3},
-		Arg2:          tasks.Operand{Value: 5},
-		Operator:      "+",
-		OperationTime: time.Now().Add(-2 * time.Second),
-	}
-
-	result := tasks.Calculate(task)
-
-	assert.Equal(t, 8.0, result, "Expected result to be 8 for addition")
 }

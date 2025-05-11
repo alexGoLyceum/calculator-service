@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    networks:
+      - my_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: cmd/orchestrator/Dockerfile
+    container_name: orchestrator
+    ports:
+      - "${ORCHESTRATOR_HTTP_PORT}:${ORCHESTRATOR_HTTP_PORT}"
+      - "${ORCHESTRATOR_GRPC_PORT}:${ORCHESTRATOR_GRPC_PORT}"
+    environment:
+      - ORCHESTRATOR_HTTP_HOST=${ORCHESTRATOR_HTTP_HOST}
+      - ORCHESTRATOR_HTTP_PORT=${ORCHESTRATOR_HTTP_PORT}
+      - ORCHESTRATOR_GRPC_HOST=${ORCHESTRATOR_GRPC_HOST}
+      - ORCHESTRATOR_GRPC_PORT=${ORCHESTRATOR_GRPC_PORT}
+      - ORCHESTRATOR_SERVICE_NAME=${ORCHESTRATOR_SERVICE_NAME}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_PATH=${LOG_PATH}
+      - LOG_ENABLE_FILE_LOGGING=${LOG_ENABLE_FILE_LOGGING}
+      - TIME_ADDITION_MS=${TIME_ADDITION_MS}
+      - TIME_SUBTRACTION_MS=${TIME_SUBTRACTION_MS}
+      - TIME_MULTIPLICATIONS_MS=${TIME_MULTIPLICATIONS_MS}
+      - TIME_DIVISIONS_MS=${TIME_DIVISIONS_MS}
+      - RESET_INTERVAL=${RESET_INTERVAL}
+      - EXPIRATION_DELAY=${EXPIRATION_DELAY}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - MIGRATION_DIR=${MIGRATION_DIR}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_TTL=${JWT_TTL}
+    restart: always
+    networks:
+      - my_network
+    depends_on:
+      - postgres
+
+  agent:
+    build:
+      context: .
+      dockerfile: cmd/agent/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - AGENT_SERVICE_NAME=${AGENT_SERVICE_NAME}
+      - ORCHESTRATOR_HOST=${ORCHESTRATOR_DOCKER_HOST}
+      - ORCHESTRATOR_GRPC_PORT=${ORCHESTRATOR_GRPC_PORT}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_PATH=${LOG_PATH}
+      - COMPUTING_POWER=${COMPUTING_POWER}
+    restart: always
+    networks:
+      - my_network
+    depends_on:
+      - orchestrator
+    deploy:
+      replicas: ${COMPUTING_POWER}
+networks:
+  my_network:
+    driver: bridge

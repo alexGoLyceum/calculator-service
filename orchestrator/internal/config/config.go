@@ -3,77 +3,152 @@ package config
 import (
 	"errors"
 	"fmt"
-	"path"
+	"time"
 
+	"github.com/alexGoLyceum/calculator-service/orchestrator/internal/database/postgres"
+	"github.com/alexGoLyceum/calculator-service/orchestrator/internal/services"
 	"github.com/alexGoLyceum/calculator-service/pkg/logging"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
-type OrchestratorConfig struct {
-	Host string
-	Port int
-}
-
-type TaskManagerConfig struct {
-	TimeAdditionMS        int
-	TimeSubtractionMS     int
-	TimeMultiplicationsMS int
-	TimeDivisionsMS       int
-}
-
 type Config struct {
-	Orchestrator OrchestratorConfig
-	TaskManager  TaskManagerConfig
-	Log          logging.LogConfig
+	Orchestrator     OrchestratorConfig
+	Database         *postgres.Config
+	Log              *logging.LoggerConfig
+	OperationTimesMs *services.OperationTimesMS
+	MigrationDir     string
+	JwtSecret        []byte
+	JwtTTL           time.Duration
+	ResetInterval    time.Duration
+	ExpirationDelay  time.Duration
 }
 
-func LoadConfig(cfgPath string) (*Config, error) {
-	if cfgPath != "" {
-		if err := godotenv.Load(path.Clean(cfgPath)); err != nil {
-			return nil, fmt.Errorf("failed to load .env file: %w", err)
-		}
-	}
+type OrchestratorConfig struct {
+	HTTPHost string
+	HTTPPort int
+	GRPCHost string
+	GRPCPort int
+}
 
+func LoadConfig() (*Config, error) {
 	viper.AutomaticEnv()
 
-	viper.SetDefault("ORCHESTRATOR_HOST", "localhost")
-	viper.SetDefault("ORCHESTRATOR_PORT", 8080)
-
-	viper.SetDefault("TIME_ADDITION_MS", 1000)
-	viper.SetDefault("TIME_SUBTRACTION_MS", 1000)
-	viper.SetDefault("TIME_MULTIPLICATIONS_MS", 1000)
-	viper.SetDefault("TIME_DIVISIONS_MS", 1000)
-
-	viper.SetDefault("LOG_LEVEL", "debug")
-	viper.SetDefault("LOG_PATH", "logs.log")
-
 	orchestrator := OrchestratorConfig{
-		Host: viper.GetString("ORCHESTRATOR_HOST"),
-		Port: viper.GetInt("ORCHESTRATOR_PORT"),
+		HTTPHost: viper.GetString("ORCHESTRATOR_HTTP_HOST"),
+		HTTPPort: viper.GetInt("ORCHESTRATOR_HTTP_PORT"),
+		GRPCHost: viper.GetString("ORCHESTRATOR_GRPC_HOST"),
+		GRPCPort: viper.GetInt("ORCHESTRATOR_GRPC_PORT"),
 	}
 
-	if orchestrator.Port <= 0 {
-		return nil, errors.New("ORCHESTRATOR_PORT must be greater than 0")
+	if err := validateOrchestrator(orchestrator); err != nil {
+		return nil, err
 	}
 
-	taskManager := TaskManagerConfig{
-		TimeAdditionMS:        viper.GetInt("TIME_ADDITION_MS"),
-		TimeSubtractionMS:     viper.GetInt("TIME_SUBTRACTION_MS"),
-		TimeMultiplicationsMS: viper.GetInt("TIME_MULTIPLICATIONS_MS"),
-		TimeDivisionsMS:       viper.GetInt("TIME_DIVISIONS_MS"),
+	operationTimesMS := services.OperationTimesMS{
+		Addition:       viper.GetDuration("TIME_ADDITION_MS"),
+		Subtraction:    viper.GetDuration("TIME_SUBTRACTION_MS"),
+		Multiplication: viper.GetDuration("TIME_MULTIPLICATIONS_MS"),
+		Division:       viper.GetDuration("TIME_DIVISIONS_MS"),
 	}
 
-	if taskManager.TimeAdditionMS <= 0 || taskManager.TimeSubtractionMS <= 0 ||
-		taskManager.TimeMultiplicationsMS <= 0 || taskManager.TimeDivisionsMS <= 0 {
-		return nil, errors.New("invalid task manager configuration: all time values must be positive")
+	if err := validateOperationTimes(operationTimesMS); err != nil {
+		return nil, err
 	}
 
-	logger := logging.LogConfig{
-		Level: viper.GetString("LOG_LEVEL"),
-		Path:  viper.GetString("LOG_PATH"),
+	logger := &logging.LoggerConfig{
+		Level:             viper.GetString("LOG_LEVEL"),
+		FilePath:          viper.GetString("LOG_PATH"),
+		EnableFileLogging: viper.GetBool("LOG_ENABLE_FILE_LOGGING"),
 	}
 
-	return &Config{Orchestrator: orchestrator, TaskManager: taskManager, Log: logger}, nil
+	if logger.Level == "" {
+		return nil, errors.New("LOG_LEVEL must be set")
+	}
+
+	database := &postgres.Config{
+		Host:     viper.GetString("POSTGRES_HOST"),
+		Port:     viper.GetString("POSTGRES_PORT"),
+		Username: viper.GetString("POSTGRES_USER"),
+		Password: viper.GetString("POSTGRES_PASSWORD"),
+		Database: viper.GetString("POSTGRES_DB"),
+	}
+
+	if err := validateDatabase(*database); err != nil {
+		return nil, err
+	}
+
+	migrationDir := viper.GetString("MIGRATION_DIR")
+	if migrationDir == "" {
+		return nil, errors.New("MIGRATION_DIR must be set")
+	}
+
+	jwtSecretStr := viper.GetString("JWT_SECRET")
+	if jwtSecretStr == "" {
+		return nil, errors.New("JWT_SECRET must be set")
+	}
+	jwtSecret := []byte(jwtSecretStr)
+
+	jwtTTL := viper.GetDuration("JWT_TTL")
+	if jwtTTL <= 0 {
+		return nil, errors.New("JWT_TTL must be greater than 0")
+	}
+
+	resetInterval := viper.GetDuration("RESET_INTERVAL")
+	if resetInterval <= 0 {
+		return nil, errors.New("RESET_INTERVAL must be greater than 0")
+	}
+
+	expirationDelay := viper.GetDuration("EXPIRATION_DELAY")
+	if expirationDelay <= 0 {
+		return nil, errors.New("EXPIRATION_DELAY must be greater than 0")
+	}
+
+	return &Config{
+		Orchestrator:     orchestrator,
+		Database:         database,
+		Log:              logger,
+		OperationTimesMs: &operationTimesMS,
+		MigrationDir:     migrationDir,
+		JwtSecret:        jwtSecret,
+		JwtTTL:           jwtTTL,
+		ResetInterval:    resetInterval,
+		ExpirationDelay:  expirationDelay,
+	}, nil
+}
+
+func validateOrchestrator(cfg OrchestratorConfig) error {
+	if cfg.HTTPHost == "" || cfg.GRPCHost == "" {
+		return errors.New("ORCHESTRATOR_HTTP_HOST and ORCHESTRATOR_GRPC_HOST must be set")
+	}
+	if cfg.HTTPPort < 1 || cfg.HTTPPort > 65535 {
+		return fmt.Errorf("ORCHESTRATOR_HTTP_PORT must be in range [1, 65535], got %d", cfg.HTTPPort)
+	}
+	if cfg.GRPCPort < 1 || cfg.GRPCPort > 65535 {
+		return fmt.Errorf("ORCHESTRATOR_GRPC_PORT must be in range [1, 65535], got %d", cfg.GRPCPort)
+	}
+	return nil
+}
+
+func validateOperationTimes(times services.OperationTimesMS) error {
+	if times.Addition <= 0 {
+		return errors.New("TIME_ADDITION_MS must be greater than 0")
+	}
+	if times.Subtraction <= 0 {
+		return errors.New("TIME_SUBTRACTION_MS must be greater than 0")
+	}
+	if times.Multiplication <= 0 {
+		return errors.New("TIME_MULTIPLICATIONS_MS must be greater than 0")
+	}
+	if times.Division <= 0 {
+		return errors.New("TIME_DIVISIONS_MS must be greater than 0")
+	}
+	return nil
+}
+
+func validateDatabase(cfg postgres.Config) error {
+	if cfg.Host == "" || cfg.Port == "" || cfg.Username == "" || cfg.Password == "" || cfg.Database == "" {
+		return errors.New("all POSTGRES_* fields must be set and non-empty")
+	}
+	return nil
 }

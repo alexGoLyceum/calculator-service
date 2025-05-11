@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package proto;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "./agent/internal/proto";
+
+service OrchestratorService {
+  rpc AssignTasks(AssignTasksRequest) returns (stream Task);
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+}
+
+message AssignTasksRequest {}
+
+message SubmitTaskRequest {
+  Task task = 1;
+  double result = 2;
+}
+
+message SubmitTaskResponse {}
+
+
+message Task {
+  string id = 1;
+  string expression_id = 2;
+  double arg1_num = 3;
+  double arg2_num = 4;
+  string operator = 5;
+  google.protobuf.Timestamp operation_time = 6;
+  bool final_task = 7;
+}

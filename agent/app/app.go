@@ -1,46 +1,49 @@
 package app
 
 import (
-	"log"
-	"path"
-
-	"go.uber.org/zap"
-
-	"github.com/alexGoLyceum/calculator-service/agent/internal/agentsmanager"
-	"github.com/alexGoLyceum/calculator-service/agent/internal/client"
+	"github.com/alexGoLyceum/calculator-service/agent/internal/agent"
 	"github.com/alexGoLyceum/calculator-service/agent/internal/config"
 	"github.com/alexGoLyceum/calculator-service/pkg/logging"
 )
 
-type Application struct {
-	Config        *config.Config
-	Logger        *zap.Logger
-	AgentsManager *agentsmanager.AgentsManager
+type Application interface {
+	Start()
 }
 
-func NewApplication() *Application {
-	cfg, err := config.LoadConfig(path.Clean(".env"))
+type Impl struct {
+	Config *config.Config
+	Logger logging.Logger
+	Agent  agent.Agent
+}
+
+func NewApplication() *Impl {
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		panic(err)
 	}
 
 	logger, err := logging.NewLogger(&cfg.Log)
 	if err != nil {
-		log.Fatalf("failed to create logger: %v", err)
+		panic(err)
 	}
 
-	client.SetUpUrl(cfg.Orchestrator)
+	a, err := agent.NewAgent(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to create agent", logging.Error(err))
+		panic(err)
+	}
 
-	a := agentsmanager.NewAgentsManager(&cfg.Agent, logger)
-
-	return &Application{
-		Config:        cfg,
-		Logger:        logger,
-		AgentsManager: a,
+	return &Impl{
+		Config: cfg,
+		Logger: logger,
+		Agent:  a,
 	}
 }
 
-func (app *Application) Start() {
-	app.Logger.Info("Starting agents")
-	app.AgentsManager.Start()
+func (app *Impl) Start() {
+	app.Logger.Info("Starting agent")
+	if err := app.Agent.Start(); err != nil {
+		app.Logger.Error("Failed to start agent", logging.Error(err))
+		panic(err)
+	}
 }
