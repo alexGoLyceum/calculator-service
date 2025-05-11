@@ -176,7 +176,7 @@ TOKEN=$(curl -s --location "http://localhost:8080/api/v1/register" \
 --header "Content-Type: application/json" \
 --data '{
   "login": "test_user",
-  "password": "StrongPass123!"
+  "password": "SecurePass123!"
 }' | jq -r '.token')
 
 echo "Полученный токен: $TOKEN"
